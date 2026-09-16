@@ -27,13 +27,15 @@
                       (setq user-emacs-directory ,user-emacs-directory
                             package-user-dir ,package-user-dir)
                       (package-initialize)
-                      (cl-assert (autoloadp (symbol-function 'strudel-example)))
-                      (strudel-example)
+                      (cl-assert (autoloadp (symbol-function 'strudel-start)))
+                      (require 'ob-strudel)
+                      (find-file (expand-file-name "examples/song.org" strudel--directory))
                       (cl-assert (eq major-mode 'org-mode))
                       (cl-assert (file-in-directory-p strudel--directory package-user-dir)))))))
             (princ (buffer-string))
             (cl-assert (eq exit-code 0))))
-        (strudel-example)
+        (require 'ob-strudel)
+        (find-file (expand-file-name "examples/song.org" strudel--directory))
         (cl-assert (eq major-mode 'org-mode))
         (cl-assert (file-in-directory-p buffer-file-name package-user-dir))
         (cl-assert (file-in-directory-p strudel--directory package-user-dir))
@@ -41,7 +43,7 @@
         (cl-assert (not (file-in-directory-p strudel-runtime-directory strudel--directory)))
         (cl-assert (not (file-exists-p (expand-file-name "runtime/" strudel--directory))))
         (dolist (file '("web/index.html" "web/player.mjs" "web/style.css"
-                        "LICENSE" "THIRD-PARTY.org" "examples/samples/kick.wav"))
+                        "LICENSE" "README.org" "examples/samples/kick.wav"))
           (cl-assert (file-readable-p (expand-file-name file strudel--directory))))
         (cl-assert (= 3 (hash-table-count
                         (strudel--sample-map (expand-file-name "examples/samples/" strudel--directory)))))

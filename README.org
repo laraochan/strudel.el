@@ -1,135 +1,76 @@
 #+title: Strudel for Emacs
 
-Emacs内のWebKitで動く、小さなオフラインStrudelプレイヤーです。
-通常のファイルとOrg Babelから、同じ演奏セッションを操作します。
-Strudel本体は =@strudel/web 1.3.0= に固定し、ローカルに保存します。
+Write and play [[https://strudel.cc/][Strudel]] in Emacs buffers and Org source blocks.
+Uses embedded WebKit with a locally installed runtime and samples.
+Experimental; tested on macOS with Emacs 31.1.
 
-* 必要な環境
+* Install
 
-- Xwidgets対応のGUI Emacs 29.1以降。
-- 初回のランタイム取得時のみインターネット接続。
+Requires GUI Emacs 29.1+ built with Xwidgets. No Node.js or external browser is needed.
 
-Node.js、npm、外部ブラウザは実行時に不要です。
-端末版Emacsでは動きません。
-macOSのEmacs 31.1で検証しています。
-
-* 導入
-
-このディレクトリを =load-path= に追加します。
-このリポジトリは実験的な初版（0.1.0）です。
+Add this checkout to your configuration:
 
 #+begin_src emacs-lisp
-(add-to-list 'load-path "/path/to/strudel")
+(add-to-list 'load-path "/path/to/strudel.el")
 (require 'strudel)
 (with-eval-after-load 'org (require 'ob-strudel))
 #+end_src
 
-=M-x strudel-setup= で、固定バージョンのJavaScript、ワーカー、ライセンスを取得します。
-SHA256を確認し、導入済みのファイルが一致すれば再取得しません。
-普段の起動ではダウンロードも自動更新も行いません。
-ランタイムは =~/.emacs.d/var/strudel/runtime/1.3.0/= に保存します。
-パッケージを更新しても再取得は不要です。
-保存先は =strudel-runtime-directory= で変更できます。
+Alternatively, run =make package= and install =dist/strudel-0.1.0.tar= with
+=M-x package-install-file=. Add the Org configuration above if needed.
 
-** package.elでインストール
+Run =M-x strudel-setup= once to download and verify =@strudel/web 1.3.0=.
+The runtime is stored under =user-emacs-directory= in =var/strudel/runtime/1.3.0/=;
+customize =strudel-runtime-directory= to change it. Playback needs no internet connection.
 
-=make package= で =dist/strudel-0.1.0.tar= を作成します。
-=M-x package-install-file= でこのtarを選択し、Org用に次を設定します。
+* Play
 
-#+begin_src emacs-lisp
-(with-eval-after-load 'org (require 'ob-strudel))
-#+end_src
+1. Open [[file:examples/song.org][examples/song.org]], which includes local drum samples.
+2. Run =M-x strudel-start= and click *Enable audio* in the player.
+3. Return to the Org buffer and press =C-c C-c= inside a source block.
+4. Edit and evaluate again to update playback. Use =M-x strudel-stop= to stop.
 
-tarにはWebKit用のHTMLとJavaScript、サンプルも含まれます。
-Strudel本体のビルド済みランタイムは含めず、導入後に =strudel-setup= で取得します。
-=M-x strudel-example= でインストール済みパッケージのサンプルを開けます。
+The player can stay hidden while playing. =strudel-quit= closes it.
+Audio must be enabled once per session. Errors appear in =*Strudel errors*=.
 
-* 最初の演奏
+Org also supports =C-c '= for editing, =:dir=, and noweb expansion.
+Use =:results silent= for live playback. Named sessions, =:var=, and recording
+are not supported. One shared session plays the most recently evaluated code.
 
-1. このディレクトリの =examples/song.org= を開きます。
-2. =M-x strudel-start= を実行します。
-3. =*Strudel*= の =Enable audio= を一度押します。
-4. Orgに戻り、コードブロックで =C-c C-c= を押します。
-5. =M-x strudel-stop= で停止します。
+For =.strudel= or =.str= files, or a JavaScript buffer with =strudel-mode= enabled:
 
-同梱のWAVだけで演奏でき、外部サンプルを取得する必要はありません。
-Orgの通常のコード実行確認は、そのまま働きます。
-音声の有効化はWebKitセッションを作り直すたびに必要です。
+| Key | Action |
+|-----+--------|
+| C-c C-c | Evaluate buffer |
+| C-c C-r | Evaluate region, replacing the complete pattern |
+| C-c C-s | Stop |
+| C-c C-z | Open player |
 
-* コマンド
+* Samples
 
-| コマンド | 動作 |
-|----------+------|
-| strudel-start | 現在のディレクトリをプロジェクトとして起動／表示 |
-| strudel-eval-buffer | バッファ全体を評価 |
-| strudel-eval-region | 選択範囲だけで演奏全体を更新 |
-| strudel-stop | 演奏を停止 |
-| strudel-quit | WebKitとアセットサーバーを終了 |
-| strudel-import-samples | 音源フォルダをプロジェクト内へコピー |
-| strudel-setup | 固定バージョンのランタイムを導入／修復 |
+Place audio in =samples/= beside your file, or use =M-x strudel-import-samples=
+to copy a folder there. Existing folders are never overwritten.
+Restart the player with =strudel-quit= and =strudel-start= after changing samples.
 
-=.strudel= と =.str= はJavaScript由来の =strudel-js-mode= で開きます。
-=js-ts-mode= を使うバッファでも、=M-x strudel-mode= で操作を追加できます。
-=C-c C-c= が全体評価、=C-c C-r= が範囲評価、=C-c C-s= が停止です。
+Without a manifest, =kick.wav= becomes =kick=. Files in a subfolder are grouped
+by that folder's name and sorted alphabetically: =drums/a.wav= and =drums/b.wav=
+become =drums:0= and =drums:1=.
 
-初版は1セッションです。
-評価のたびに、そのコードで演奏全体を更新します。
-別プロジェクトを演奏するときは、そのディレクトリで =strudel-start= を実行します。
-エラーは =*Strudel errors*= とプレイヤーに表示します。
-
-* ローカル音源
-
-プロジェクトの =samples/= に音源を置くと、起動時に登録します。
-=strudel-import-samples= は、選択フォルダ内の音源とマニフェストを =samples/= にコピーします。
-既存の =samples/= は上書きしません。
-導入後の追加や整理にはDiredを使えます。
-変更を登録するには =strudel-quit= → =strudel-start= を実行してください。
-
-=strudel.json= がある場合はその対応表を使います。
-ファイルのパスは =samples/= からの相対パスにします。
-=_base= は実行中のローカルURLに置き換えます。
+An optional =samples/strudel.json= defines names explicitly:
 
 #+begin_src json
 {"kick": "kick.wav", "snare": ["snare-a.wav", "snare-b.wav"]}
 #+end_src
 
-マニフェストがなければ、ルートの =kick.wav= を =kick= として登録します。
-サブフォルダは1つの音名にまとめ、ファイル名順に番号を付けます。
-例えば =drums/a.wav= と =drums/b.wav= は =drums:0= と =drums:1= になります。
-WAVを推奨します。
-ほかの音声形式の再生可否はWebKitのデコーダーに依存します。
+Paths must be relative to =samples/=. The player supplies the local base URL.
+WAV is recommended; other formats depend on WebKit's decoders.
+Samples are decoded on demand, so the first hit of a large sample may be delayed.
 
-不足ファイルとプロジェクト外への参照は登録時にエラーにします。
-サンプルはStrudelが必要に応じてデコードするため、大きな音源は最初の発音が遅れる場合があります。
+Assets are served on =127.0.0.1=. External resource requests are blocked;
+copy remote samples locally before using them. This is a small player, not the
+full online REPL: piano roll, Hydra, and recording UI are not included.
 
-* Orgとの連携
-
-#+begin_example
-#+begin_src strudel :results silent
-$: s("kick snare").gain(0.3)
-$: note("c3 eb3 g3").s("triangle").gain(0.08)
-#+end_src
-#+end_example
-
-=C-c C-c= で評価し、=C-c '= でJavaScriptの編集バッファを開きます。
-=:dir= とOrg標準のnoweb展開が使えます。
-名前付きセッション、=:var=、演奏結果のファイル出力は未対応です。
-ライブ演奏なので、結果の取得には =:results silent= を使います。
-
-* オフライン動作の範囲
-
-ランタイムと音源をローカルファイルとして保持します。
-Emacsが =127.0.0.1= の一時ポートで配信し、WebKitが読み込みます。
-インターネット接続は不要で、外部URLへの読み込みはページのポリシーで拒否します。
-=samples('github:...')= や外部サービスを使うコードは、そのままでは動きません。
-必要な素材を先にローカルに保存してください。
-
-初版にはオンラインREPLの全機能、ピアノロール、Hydra、録音UIは含めていません。
-シンセ、ローカルサンプル、Strudelの標準的な構文変換を利用します。
-
-* 検証
-
-リポジトリのルートから実行します。
+* Development
 
 #+begin_src sh
 make check
@@ -137,20 +78,21 @@ make test
 make test-package
 #+end_src
 
-実際のWebKit音声テストは、サンプルプロジェクトのプレイヤーを起動してから
-=test/strudel-webkit-smoke.el= をロードし、=M-x strudel-test-webkit= を実行します。
-低音量で数秒演奏し、自動停止します。
-=M-x strudel-test-webkit-result= で波形、評価、更新、停止、ローカル読み込みの検証結果を確認できます。
+For the WebKit/audio check, start the example project, load
+=test/strudel-webkit-smoke.el=, and run =M-x strudel-test-webkit=.
+It plays briefly at low volume and stops automatically.
+Read the result with =M-x strudel-test-webkit-result=.
 
-* ライセンスと参照元
+* License
 
-パッケージとStrudelはAGPL-3.0-or-laterです。
-同梱のサンプルノートと、この実装用に合成したWAVはCC0-1.0です。
+AGPL-3.0-or-later; see [[file:LICENSE][LICENSE]]. The example notebook and synthesized WAV files
+are CC0-1.0; see [[file:examples/LICENSE][examples/LICENSE]]. This is an independent Emacs integration.
 
-- [[https://codeberg.org/uzu/strudel][Strudel upstream source]]
-- [[https://www.npmjs.com/package/@strudel/web/v/1.3.0][使用する配布パッケージ]]
-- [[https://strudel.cc/learn/samples/][サンプル読み込みの公式説明]]
-
-このリポジトリと =make package= の生成物には、上流のStrudelランタイムを同梱しません。
-取得先、バージョン、ハッシュ、ライセンスは =THIRD-PARTY.org= に記録しています。
-ランタイムを含む配布物やネットワークサービスを作る場合は、対応ソースの提供と依存物の表示を別途整えてください。
+[[https://codeberg.org/uzu/strudel][Strudel]] is by the Strudel contributors and is also AGPL-3.0-or-later.
+Its runtime is downloaded separately from
+=https://unpkg.com/@strudel/web@1.3.0/=, preserving its LICENSE and embedded notices.
+The exact files and SHA256 checksums are in =strudel--runtime-files= in [[file:strudel.el][strudel.el]].
+Neither Git nor the package tar includes that runtime.
+Before redistributing the bundled upstream runtime or hosting a service,
+prepare the matching source, build material, and dependency notices required
+by its licenses; the upstream repository link alone does not provide that package.

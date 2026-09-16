@@ -51,13 +51,6 @@ Kept outside the package so upgrades do not remove downloaded assets."
     (secure-hash 'sha256 (current-buffer))))
 
 ;;;###autoload
-(defun strudel-example ()
-  "Open the bundled offline Org notebook."
-  (interactive)
-  (require 'ob-strudel)
-  (find-file (expand-file-name "examples/song.org" strudel--directory)))
-
-;;;###autoload
 (defun strudel-setup ()
   "Download and verify the pinned Strudel runtime once.
 No package scripts or npm install are run.  Later playback is offline."

@@ -14,7 +14,7 @@ package:
 	mkdir -p dist
 	@set -eu; staging=$$(mktemp -d); trap 'rm -rf "$$staging"' 0; \
 	mkdir "$$staging/$(PACKAGE)"; \
-	cp $(SOURCES) strudel-pkg.el LICENSE README.org THIRD-PARTY.org "$$staging/$(PACKAGE)/"; \
+	cp $(SOURCES) strudel-pkg.el LICENSE README.org "$$staging/$(PACKAGE)/"; \
 	cp -R web examples "$$staging/$(PACKAGE)/"; \
 	tar -cf dist/$(PACKAGE).tar -C "$$staging" $(PACKAGE)
 
