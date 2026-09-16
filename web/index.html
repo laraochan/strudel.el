@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Strudel</title>
+<link rel="stylesheet" href="style.css">
+<h1>Strudel</h1>
+<p>Write in Emacs or an Org source block. Enable audio once per session.</p>
+<button id="enable" disabled>Enable audio</button>
+<button id="stop">Stop</button>
+<p id="state" role="status">Loading local runtime…</p>
+<pre id="error" role="alert"></pre>
+<p>Local samples: <span id="samples">loading…</span></p>
+<p><small>Strudel 1.3.0 · <a href="runtime/LICENSE">AGPL-3.0-or-later</a></small></p>
+<script type="module" src="player.mjs"></script>
+</html>

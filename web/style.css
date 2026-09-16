@@ -1,0 +1,4 @@
+:root { color-scheme: light dark; font: 16px system-ui, sans-serif; }
+body { margin: 2rem; max-width: 48rem; }
+button { font: inherit; padding: .5rem 1rem; margin-right: .5rem; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; color: #d45b5b; }

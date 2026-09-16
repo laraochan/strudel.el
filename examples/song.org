@@ -1,0 +1,28 @@
+#+title: Offline Strudel notebook
+
+Open this file and run =M-x strudel-start=.
+In the player buffer, click =Enable audio= once.
+Return here and press =C-c C-c= inside a block to play or update it.
+Use =M-x strudel-stop= to stop, and =M-x strudel-quit= to close the player.
+Each block replaces the complete pattern.  =C-c '= opens a source editor.
+
+* Local drums
+
+The three WAV files in =samples/= were synthesized for this example.
+No sample download is needed.
+
+#+begin_src strudel :results silent
+s("kick snare [kick kick] snare, hat*8").gain(0.3)
+#+end_src
+
+* Add a synthesizer
+
+#+begin_src strudel :results silent
+$: s("kick snare [kick kick] snare, hat*8").gain(0.3)
+$: note("c3 eb3 g3 bb3").s("triangle").gain(0.08)
+#+end_src
+
+* Installation version
+
+This notebook uses =@strudel/web 1.3.0=.
+The examples and synthesized WAV files are released under CC0-1.0.

@@ -1,0 +1,156 @@
+#+title: Strudel for Emacs
+
+Emacs内のWebKitで動く、小さなオフラインStrudelプレイヤーです。
+通常のファイルとOrg Babelから、同じ演奏セッションを操作します。
+Strudel本体は =@strudel/web 1.3.0= に固定し、ローカルに保存します。
+
+* 必要な環境
+
+- Xwidgets対応のGUI Emacs 29.1以降。
+- 初回のランタイム取得時のみインターネット接続。
+
+Node.js、npm、外部ブラウザは実行時に不要です。
+端末版Emacsでは動きません。
+macOSのEmacs 31.1で検証しています。
+
+* 導入
+
+このディレクトリを =load-path= に追加します。
+このリポジトリは実験的な初版（0.1.0）です。
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path "/path/to/strudel")
+(require 'strudel)
+(with-eval-after-load 'org (require 'ob-strudel))
+#+end_src
+
+=M-x strudel-setup= で、固定バージョンのJavaScript、ワーカー、ライセンスを取得します。
+SHA256を確認し、導入済みのファイルが一致すれば再取得しません。
+普段の起動ではダウンロードも自動更新も行いません。
+ランタイムは =~/.emacs.d/var/strudel/runtime/1.3.0/= に保存します。
+パッケージを更新しても再取得は不要です。
+保存先は =strudel-runtime-directory= で変更できます。
+
+** package.elでインストール
+
+=make package= で =dist/strudel-0.1.0.tar= を作成します。
+=M-x package-install-file= でこのtarを選択し、Org用に次を設定します。
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'org (require 'ob-strudel))
+#+end_src
+
+tarにはWebKit用のHTMLとJavaScript、サンプルも含まれます。
+Strudel本体のビルド済みランタイムは含めず、導入後に =strudel-setup= で取得します。
+=M-x strudel-example= でインストール済みパッケージのサンプルを開けます。
+
+* 最初の演奏
+
+1. このディレクトリの =examples/song.org= を開きます。
+2. =M-x strudel-start= を実行します。
+3. =*Strudel*= の =Enable audio= を一度押します。
+4. Orgに戻り、コードブロックで =C-c C-c= を押します。
+5. =M-x strudel-stop= で停止します。
+
+同梱のWAVだけで演奏でき、外部サンプルを取得する必要はありません。
+Orgの通常のコード実行確認は、そのまま働きます。
+音声の有効化はWebKitセッションを作り直すたびに必要です。
+
+* コマンド
+
+| コマンド | 動作 |
+|----------+------|
+| strudel-start | 現在のディレクトリをプロジェクトとして起動／表示 |
+| strudel-eval-buffer | バッファ全体を評価 |
+| strudel-eval-region | 選択範囲だけで演奏全体を更新 |
+| strudel-stop | 演奏を停止 |
+| strudel-quit | WebKitとアセットサーバーを終了 |
+| strudel-import-samples | 音源フォルダをプロジェクト内へコピー |
+| strudel-setup | 固定バージョンのランタイムを導入／修復 |
+
+=.strudel= と =.str= はJavaScript由来の =strudel-js-mode= で開きます。
+=js-ts-mode= を使うバッファでも、=M-x strudel-mode= で操作を追加できます。
+=C-c C-c= が全体評価、=C-c C-r= が範囲評価、=C-c C-s= が停止です。
+
+初版は1セッションです。
+評価のたびに、そのコードで演奏全体を更新します。
+別プロジェクトを演奏するときは、そのディレクトリで =strudel-start= を実行します。
+エラーは =*Strudel errors*= とプレイヤーに表示します。
+
+* ローカル音源
+
+プロジェクトの =samples/= に音源を置くと、起動時に登録します。
+=strudel-import-samples= は、選択フォルダ内の音源とマニフェストを =samples/= にコピーします。
+既存の =samples/= は上書きしません。
+導入後の追加や整理にはDiredを使えます。
+変更を登録するには =strudel-quit= → =strudel-start= を実行してください。
+
+=strudel.json= がある場合はその対応表を使います。
+ファイルのパスは =samples/= からの相対パスにします。
+=_base= は実行中のローカルURLに置き換えます。
+
+#+begin_src json
+{"kick": "kick.wav", "snare": ["snare-a.wav", "snare-b.wav"]}
+#+end_src
+
+マニフェストがなければ、ルートの =kick.wav= を =kick= として登録します。
+サブフォルダは1つの音名にまとめ、ファイル名順に番号を付けます。
+例えば =drums/a.wav= と =drums/b.wav= は =drums:0= と =drums:1= になります。
+WAVを推奨します。
+ほかの音声形式の再生可否はWebKitのデコーダーに依存します。
+
+不足ファイルとプロジェクト外への参照は登録時にエラーにします。
+サンプルはStrudelが必要に応じてデコードするため、大きな音源は最初の発音が遅れる場合があります。
+
+* Orgとの連携
+
+#+begin_example
+#+begin_src strudel :results silent
+$: s("kick snare").gain(0.3)
+$: note("c3 eb3 g3").s("triangle").gain(0.08)
+#+end_src
+#+end_example
+
+=C-c C-c= で評価し、=C-c '= でJavaScriptの編集バッファを開きます。
+=:dir= とOrg標準のnoweb展開が使えます。
+名前付きセッション、=:var=、演奏結果のファイル出力は未対応です。
+ライブ演奏なので、結果の取得には =:results silent= を使います。
+
+* オフライン動作の範囲
+
+ランタイムと音源をローカルファイルとして保持します。
+Emacsが =127.0.0.1= の一時ポートで配信し、WebKitが読み込みます。
+インターネット接続は不要で、外部URLへの読み込みはページのポリシーで拒否します。
+=samples('github:...')= や外部サービスを使うコードは、そのままでは動きません。
+必要な素材を先にローカルに保存してください。
+
+初版にはオンラインREPLの全機能、ピアノロール、Hydra、録音UIは含めていません。
+シンセ、ローカルサンプル、Strudelの標準的な構文変換を利用します。
+
+* 検証
+
+リポジトリのルートから実行します。
+
+#+begin_src sh
+make check
+make test
+make test-package
+#+end_src
+
+実際のWebKit音声テストは、サンプルプロジェクトのプレイヤーを起動してから
+=test/strudel-webkit-smoke.el= をロードし、=M-x strudel-test-webkit= を実行します。
+低音量で数秒演奏し、自動停止します。
+=M-x strudel-test-webkit-result= で波形、評価、更新、停止、ローカル読み込みの検証結果を確認できます。
+
+* ライセンスと参照元
+
+パッケージとStrudelはAGPL-3.0-or-laterです。
+同梱のサンプルノートと、この実装用に合成したWAVはCC0-1.0です。
+
+- [[https://codeberg.org/uzu/strudel][Strudel upstream source]]
+- [[https://www.npmjs.com/package/@strudel/web/v/1.3.0][使用する配布パッケージ]]
+- [[https://strudel.cc/learn/samples/][サンプル読み込みの公式説明]]
+
+このリポジトリと =make package= の生成物には、上流のStrudelランタイムを同梱しません。
+取得先、バージョン、ハッシュ、ライセンスは =THIRD-PARTY.org= に記録しています。
+ランタイムを含む配布物やネットワークサービスを作る場合は、対応ソースの提供と依存物の表示を別途整えてください。
