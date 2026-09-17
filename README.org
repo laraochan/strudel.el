@@ -26,12 +26,15 @@ customize =strudel-runtime-directory= to change it. Playback needs no internet c
 * Play
 
 1. Open [[file:examples/song.org][examples/song.org]], which includes local drum samples.
-2. Run =M-x strudel-start= and click *Enable audio* in the player.
-3. Return to the Org buffer and press =C-c C-c= inside a source block.
+2. Run =M-x strudel-start= and wait for “Strudel ready”.
+3. Press =C-c C-c= inside a source block.
 4. Edit and evaluate again to update playback. Use =M-x strudel-stop= to stop.
 
-The player can stay hidden while playing. =strudel-quit= closes it.
-Audio must be enabled once per session. Errors appear in =*Strudel errors*=.
+Startup restores your editing layout and enables audio automatically.
+WebKit is rendered once during startup, so the player may briefly flash.
+Use =M-x strudel-show= to open its controls; =strudel-quit= closes the session.
+If WebKit blocks automatic audio, the player opens for a manual *Enable audio* click.
+Errors appear in =*Strudel errors*=.
 
 Org also supports =C-c '= for editing, =:dir=, and noweb expansion.
 Use =:results silent= for live playback. Named sessions, =:var=, and recording
@@ -44,7 +47,7 @@ For =.strudel= or =.str= files, or a JavaScript buffer with =strudel-mode= enabl
 | C-c C-c | Evaluate buffer |
 | C-c C-r | Evaluate region, replacing the complete pattern |
 | C-c C-s | Stop |
-| C-c C-z | Open player |
+| C-c C-z | Start runtime |
 
 * Samples
 

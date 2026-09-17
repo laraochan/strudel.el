@@ -12,8 +12,7 @@
   const m = await import('./runtime/dist/index.mjs');
   let meter;
   try {
-    document.getElementById('enable').click();
-    await sleep(300);
+    check('audio enabled without a click', document.getElementById('state').textContent === 'ready');
     check('AudioContext running', m.getAudioContext().state === 'running');
     check('AudioWorklet available', !!m.getAudioContext().audioWorklet);
     check('local manifest registered', document.getElementById('samples').textContent.includes('kick'));

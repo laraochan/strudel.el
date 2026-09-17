@@ -1,8 +1,7 @@
 #+title: Offline Strudel notebook
 
 Open this file and run =M-x strudel-start=.
-In the player buffer, click =Enable audio= once.
-Return here and press =C-c C-c= inside a block to play or update it.
+Wait for “Strudel ready”, then press =C-c C-c= inside a block to play or update it.
 Use =M-x strudel-stop= to stop, and =M-x strudel-quit= to close the player.
 Each block replaces the complete pattern.  =C-c '= opens a source editor.
 

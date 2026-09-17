@@ -147,4 +147,19 @@
           (should-not strudel--widget))
       (when (buffer-live-p buffer) (kill-buffer buffer)))))
 
+(ert-deftest strudel-enables-once-and-shows-only-on-fallback ()
+  (let ((strudel--widget 'test) (strudel--buffer (current-buffer))
+        (strudel--state "loading") sent shown)
+    (cl-letf (((symbol-function 'strudel--send)
+               (lambda (command) (push command sent)))
+              ((symbol-function 'display-buffer)
+               (lambda (buffer &rest _) (push buffer shown))))
+      (dotimes (_ 2)
+        (strudel--receive 'test "{\"state\":\"loaded\",\"events\":[]}"))
+      (should (equal sent '(((type . "enable")))))
+      (strudel--receive 'test "{\"state\":\"ready\",\"events\":[]}")
+      (should-not shown)
+      (strudel--receive 'test "{\"state\":\"enable-audio\",\"events\":[]}")
+      (should (equal shown (list (current-buffer)))))))
+
 ;;; strudel-tests.el ends here

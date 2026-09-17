@@ -9,7 +9,7 @@
 
 ;;; Commentary:
 ;; Run `strudel-setup' once to install the pinned JavaScript runtime.
-;; Run `strudel-start', enable audio in its buffer, then evaluate a buffer
+;; Run `strudel-start', then evaluate a buffer
 ;; or Org source block.  Playback and samples stay on this computer.
 
 ;;; Code:
@@ -86,7 +86,16 @@ No package scripts or npm install are run.  Later playback is offline."
       (condition-case err
           (let* ((data (json-parse-string payload :object-type 'alist :array-type 'list))
                  (state (alist-get 'state data)))
-            (when state (setq strudel--state state) (force-mode-line-update t))
+            (when (and state (not (equal state strudel--state)))
+              (setq strudel--state state)
+              (force-mode-line-update t)
+              (cond
+               ((equal state "loaded")
+                (strudel--send '((type . "enable"))))
+               ((equal state "enable-audio")
+                (display-buffer strudel--buffer)
+                (message "Strudel: WebKit needs a click on Enable audio"))
+               ((equal state "ready") (message "Strudel ready"))))
             (dolist (event (alist-get 'events data))
               (let* ((id (alist-get 'id event))
                      (source (gethash id strudel--sources))
@@ -122,7 +131,7 @@ No package scripts or npm install are run.  Later playback is offline."
 
 ;;;###autoload
 (defun strudel-start (&optional directory)
-  "Start or display Strudel for DIRECTORY, defaulting to `default-directory'.
+  "Start Strudel in the background for DIRECTORY or `default-directory'.
 The project samples/ directory is registered automatically.  Starting a
 different project closes the previous session.  Requires GUI Xwidgets."
   (interactive)
@@ -133,7 +142,7 @@ different project closes the previous session.  Requires GUI Xwidgets."
     (setq directory (file-name-as-directory (file-truename directory)))
     (unless (file-directory-p directory) (user-error "No project directory: %s" directory))
     (if (and (equal directory strudel--project) (buffer-live-p strudel--buffer))
-        (pop-to-buffer strudel--buffer)
+        (message "Strudel: %s" strudel--state)
       (dolist (entry strudel--runtime-files)
         (let ((file (expand-file-name (car entry) strudel-runtime-directory)))
           (unless (and (file-exists-p file) (equal (strudel--sha256 file) (cdr entry)))
@@ -145,17 +154,29 @@ different project closes the previous session.  Requires GUI Xwidgets."
             (strudel--server-start (expand-file-name "web/" strudel--directory)
                                    strudel-runtime-directory (expand-file-name "samples/" directory))
             (setq strudel--project directory strudel--state "loading")
-            (xwidget-webkit-new-session (concat strudel--base-url "index.html"))
-            (setq strudel--buffer (current-buffer)
-                  strudel--widget (xwidget-webkit-current-session))
-            (set-xwidget-query-on-exit-flag strudel--widget nil)
-            (setq-local default-directory directory)
-            (setq-local xwidget-webkit-buffer-name-format "*Strudel*")
-            (rename-buffer "*Strudel*" t)
-            (add-hook 'kill-buffer-hook #'strudel--cleanup nil t)
+            ;; Realize the WebKit view once: an undisplayed macOS view cannot
+            ;; start audio.  Then restore the editor and keep the player alive.
+            (save-window-excursion
+              (xwidget-webkit-new-session (concat strudel--base-url "index.html"))
+              (setq strudel--buffer (current-buffer)
+                    strudel--widget (xwidget-webkit-current-session))
+              (set-xwidget-query-on-exit-flag strudel--widget nil)
+              (setq-local default-directory directory)
+              (setq-local xwidget-webkit-buffer-name-format "*Strudel*")
+              (rename-buffer "*Strudel*" t)
+              (add-hook 'kill-buffer-hook #'strudel--cleanup nil t)
+              (redisplay t))
             (setq strudel--poll-timer (run-at-time 0.2 0.3 #'strudel--poll))
-            (message "Enable audio in *Strudel*, then evaluate a buffer or Org block"))
+            (message "Starting Strudel in the background..."))
         (error (strudel-quit) (signal (car err) (cdr err)))))))
+
+;;;###autoload
+(defun strudel-show ()
+  "Show the player controls without restarting the audio session."
+  (interactive)
+  (unless (buffer-live-p strudel--buffer)
+    (user-error "Start Strudel with M-x strudel-start first"))
+  (pop-to-buffer strudel--buffer))
 
 ;;;###autoload
 (defun strudel-quit ()
@@ -180,7 +201,7 @@ The last evaluation replaces the complete pattern in one shared session."
                  strudel--project)
     (user-error "Run strudel-start in this project first"))
   (unless (member strudel--state '("ready" "playing" "stopped" "error"))
-    (user-error "Strudel is %s; enable audio in *Strudel* first" strudel--state))
+    (user-error "Strudel is %s; wait for readiness or use strudel-show" strudel--state))
   (let ((id (cl-incf strudel--request-id)))
     (puthash id (or source (buffer-name)) strudel--sources)
     (strudel--send `((type . "eval") (id . ,id) (code . ,code)))))

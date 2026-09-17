@@ -7,6 +7,7 @@ let repl;
 let busy = false;
 let generation = 0;
 let enabled = false;
+let audioInit;
 const status = document.getElementById('state');
 const error = document.getElementById('error');
 
@@ -27,7 +28,38 @@ window.addEventListener('unhandledrejection', event => report(event.reason));
 document.addEventListener('securitypolicyviolation', event =>
   report(`Offline player blocked external resource: ${event.blockedURI}`));
 
+async function enableAudio() {
+  setState('starting-audio');
+  let timeout;
+  try {
+    // Called from Emacs' execute-script, or from the fallback button.  Resume
+    // synchronously here to retain any user activation granted by WebKit.
+    const context = runtime.getAudioContext();
+    const resumed = context.resume();
+    audioInit ??= runtime.initAudio().catch(reason => {
+      audioInit = undefined;
+      throw reason;
+    });
+    await Promise.race([
+      Promise.all([resumed, audioInit]),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Click Enable audio to allow playback.')), 2000);
+      }),
+    ]);
+    if (context.state !== 'running') throw new Error('Click Enable audio to allow playback.');
+    enabled = true;
+    error.textContent = '';
+    setState(repl.scheduler.started ? 'playing' : 'ready');
+  } catch (reason) {
+    error.textContent = reason.message;
+    setState('enable-audio');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function command(request) {
+  if (request.type === 'enable') return enableAudio();
   if (request.type === 'stop') {
     generation++;
     repl?.stop();
@@ -71,16 +103,7 @@ window.strudelEmacs = {
 };
 
 document.getElementById('stop').addEventListener('click', () => command({ type: 'stop' }));
-document.getElementById('enable').addEventListener('click', async () => {
-  try {
-    await runtime.initAudio();
-    if (runtime.getAudioContext().state !== 'running') {
-      throw new Error('Audio is suspended. Click Enable audio again.');
-    }
-    enabled = true;
-    setState('ready');
-  } catch (reason) { report(reason); }
-});
+document.getElementById('enable').addEventListener('click', enableAudio);
 
 try {
   runtime = await import('./runtime/dist/index.mjs');
@@ -98,5 +121,5 @@ try {
   const names = Object.keys(map).filter(name => name !== '_base');
   document.getElementById('samples').textContent = names.join(', ') || 'none (synths available)';
   document.getElementById('enable').disabled = false;
-  setState('enable-audio');
+  setState('loaded');
 } catch (reason) { report(reason); }
