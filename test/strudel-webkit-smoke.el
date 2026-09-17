@@ -15,7 +15,7 @@
    (with-temp-buffer
      (insert-file-contents (expand-file-name "strudel-webkit-smoke.js" strudel-test--directory))
      (buffer-string)))
-  (message "WebKit audio check started; inspect result in about 4 seconds"))
+  (message "WebKit audio check started; inspect result in about 15 seconds"))
 
 (defvar strudel-test-webkit-result nil)
 (defun strudel-test-webkit-result ()

@@ -9,8 +9,7 @@
 
 ;;; Commentary:
 ;; Run `strudel-setup' once to install the pinned JavaScript runtime.
-;; Run `strudel-start', then evaluate a buffer
-;; or Org source block.  Playback and samples stay on this computer.
+;; Evaluate a buffer or Org source block to start playback automatically.  Playback and samples stay on this computer.
 
 ;;; Code:
 (require 'cl-lib)
@@ -35,6 +34,8 @@ Kept outside the package so upgrades do not remove downloaded assets."
 (defvar strudel--poll-timer nil)
 (defvar strudel--poll-pending nil)
 (defvar strudel--state "off")
+(defvar strudel--pending-eval nil
+  "Latest (CODE DIRECTORY SOURCE) waiting for the runtime to become ready.")
 (defvar strudel--request-id 0)
 (defvar strudel--sources (make-hash-table :test #'eql))
 
@@ -69,7 +70,7 @@ No package scripts or npm install are run.  Later playback is offline."
                   (error "Strudel checksum mismatch: %s" (car entry)))
                 (rename-file temporary target t))
             (when (file-exists-p temporary) (delete-file temporary)))))))
-  (message "Strudel %s installed; M-x strudel-start" strudel-runtime-version))
+  (message "Strudel %s installed; evaluate a buffer or Org block to play" strudel-runtime-version))
 
 (defun strudel--log (text)
   "Append TEXT to the Strudel error buffer."
@@ -86,6 +87,10 @@ No package scripts or npm install are run.  Later playback is offline."
       (condition-case err
           (let* ((data (json-parse-string payload :object-type 'alist :array-type 'list))
                  (state (alist-get 'state data)))
+            (when (or (equal state "error")
+                      (cl-find "stopped" (alist-get 'events data)
+                               :key (lambda (event) (alist-get 'type event)) :test #'equal))
+              (setq strudel--pending-eval nil))
             (when (and state (not (equal state strudel--state)))
               (setq strudel--state state)
               (force-mode-line-update t)
@@ -95,7 +100,12 @@ No package scripts or npm install are run.  Later playback is offline."
                ((equal state "enable-audio")
                 (display-buffer strudel--buffer)
                 (message "Strudel: WebKit needs a click on Enable audio"))
-               ((equal state "ready") (message "Strudel ready"))))
+               ((equal state "ready")
+                (if strudel--pending-eval
+                    (let ((pending strudel--pending-eval))
+                      (setq strudel--pending-eval nil)
+                      (apply #'strudel-eval-string pending))
+                  (message "Strudel ready")))))
             (dolist (event (alist-get 'events data))
               (let* ((id (alist-get 'id event))
                      (source (gethash id strudel--sources))
@@ -123,7 +133,7 @@ No package scripts or npm install are run.  Later playback is offline."
 (defun strudel--cleanup ()
   "Release the singleton session when its WebKit buffer is killed."
   (when (timerp strudel--poll-timer) (cancel-timer strudel--poll-timer))
-  (setq strudel--poll-timer nil strudel--poll-pending nil
+  (setq strudel--poll-timer nil strudel--poll-pending nil strudel--pending-eval nil
         strudel--widget nil strudel--buffer nil strudel--project nil strudel--state "off")
   (clrhash strudel--sources)
   (strudel--server-stop)
@@ -196,15 +206,21 @@ different project closes the previous session.  Requires GUI Xwidgets."
 
 (defun strudel-eval-string (code &optional directory source)
   "Evaluate CODE for DIRECTORY with SOURCE identifying errors.
-The last evaluation replaces the complete pattern in one shared session."
-  (unless (equal (file-name-as-directory (file-truename (or directory default-directory)))
-                 strudel--project)
-    (user-error "Run strudel-start in this project first"))
-  (unless (member strudel--state '("ready" "playing" "stopped" "error"))
-    (user-error "Strudel is %s; wait for readiness or use strudel-show" strudel--state))
-  (let ((id (cl-incf strudel--request-id)))
-    (puthash id (or source (buffer-name)) strudel--sources)
-    (strudel--send `((type . "eval") (id . ,id) (code . ,code)))))
+Start the runtime automatically if needed.  While starting, retain only
+the latest evaluation.  The last evaluation replaces the complete pattern."
+  (setq directory (or directory default-directory)
+        source (or source (buffer-name)))
+  (when (file-remote-p directory) (user-error "Strudel requires a local project"))
+  (setq directory (file-name-as-directory (file-truename directory)))
+  (unless (and (equal directory strudel--project) (buffer-live-p strudel--buffer))
+    (strudel-start directory))
+  (if (member strudel--state '("loading" "loaded" "starting-audio" "enable-audio"))
+      (progn
+        (setq strudel--pending-eval (list code directory source))
+        (message "Strudel: waiting for audio; latest evaluation will play when ready"))
+    (let ((id (cl-incf strudel--request-id)))
+      (puthash id source strudel--sources)
+      (strudel--send `((type . "eval") (id . ,id) (code . ,code))))))
 
 ;;;###autoload
 (defun strudel-eval-buffer ()
@@ -221,7 +237,11 @@ The last evaluation replaces the complete pattern in one shared session."
 (defun strudel-stop ()
   "Stop playback, including an evaluation that is still pending."
   (interactive)
-  (strudel--send '((type . "stop"))))
+  (setq strudel--pending-eval nil)
+  ;; No code has been sent during startup; do not interrupt its handshake.
+  (when (and (buffer-live-p strudel--buffer)
+             (member strudel--state '("ready" "playing" "stopped" "error")))
+    (strudel--send '((type . "stop")))))
 
 ;;;###autoload
 (defun strudel-import-samples (directory)

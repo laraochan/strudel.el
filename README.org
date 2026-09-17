@@ -26,10 +26,13 @@ customize =strudel-runtime-directory= to change it. Playback needs no internet c
 * Play
 
 1. Open [[file:examples/song.org][examples/song.org]], which includes local drum samples.
-2. Run =M-x strudel-start= and wait for “Strudel ready”.
-3. Press =C-c C-c= inside a source block.
-4. Edit and evaluate again to update playback. Use =M-x strudel-stop= to stop.
+2. Press =C-c C-c= inside a source block. The player starts and plays it automatically.
+3. Edit and evaluate again to update playback. Use =M-x strudel-stop= to stop.
 
+The first evaluation starts the runtime; later evaluations reuse it.
+While it starts, only the latest evaluation is kept. =strudel-stop= cancels it.
+Evaluating in another project switches the shared player to that project's samples.
+You can still use =strudel-start= to prepare the player ahead of time.
 Startup restores your editing layout and enables audio automatically.
 WebKit is rendered once during startup, so the player may briefly flash.
 Use =M-x strudel-show= to open its controls; =strudel-quit= closes the session.

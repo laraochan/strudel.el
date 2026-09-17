@@ -63,7 +63,8 @@ async function command(request) {
   if (request.type === 'stop') {
     generation++;
     repl?.stop();
-    setState(enabled ? 'stopped' : 'enable-audio');
+    events.push({ type: 'stopped' });
+    if (enabled) setState('stopped');
     return;
   }
   if (request.type !== 'eval') return;
@@ -113,7 +114,31 @@ try {
   document.addEventListener('strudel.log', ({ detail }) => {
     if (!busy && (detail.type === 'error' || /error:/i.test(detail.message))) report(detail.message);
   });
-  repl = await runtime.initStrudel();
+  // The player stays hidden. WebKit throttles window timers in that state.
+  // One worker timer drives the one scheduler without changing its semantics.
+  const clockURL = URL.createObjectURL(new Blob([`
+    let timer;
+    onmessage = ({ data: delay }) => {
+      clearInterval(timer);
+      if (delay) timer = setInterval(() => postMessage(null), delay);
+    };
+  `], { type: 'text/javascript' }));
+  const clock = new Worker(clockURL);
+  URL.revokeObjectURL(clockURL);
+  clock.onerror = event => report(event.message);
+  let tick;
+  clock.onmessage = () => tick?.();
+  repl = await runtime.initStrudel({
+    setInterval(callback, delay) {
+      tick = callback;
+      clock.postMessage(delay);
+      return 1;
+    },
+    clearInterval() {
+      tick = undefined;
+      clock.postMessage(0);
+    },
+  });
   const response = await fetch('./samples/strudel.json');
   if (!response.ok) throw new Error('Cannot read the local sample manifest.');
   const map = await response.json();

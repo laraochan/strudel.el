@@ -28,6 +28,18 @@
       code: 's("kick*8 snare*8 hat*8").gain(0.08).analyze(1)'});
     await sleep(1600);
     check('local WAV generates nonzero audio', peak > 0.00001);
+    await player.command({type: 'eval', id: 9006,
+      code: 'note("c3").s("sine").gain(0.03).legato(2).analyze(1)'});
+    // Outlast the initial note: a hidden window timer can stop scheduling
+    // even though the AudioContext and the cycle counter keep advancing.
+    await sleep(4500);
+    for (let i = 0; i < 3; i++) {
+      const a = m.getAnalyserById(1);
+      const data = new Float32Array(a.fftSize);
+      a.getFloatTimeDomainData(data);
+      check(`background audio continues (${i + 1})`, data.some(value => Math.abs(value) > 0.00001));
+      await sleep(750);
+    }
     const before = m.getTime();
     await player.command({type: 'eval', id: 9002,
       code: '$: s("hat*8").gain(0.05)\n$: note("c3 eb3 g3").s("triangle").gain(0.03).analyze(1)'});
